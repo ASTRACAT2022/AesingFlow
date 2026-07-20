@@ -27,6 +27,7 @@ import (
 	"github.com/ASTRACAT2022/aesingflow/core/scheduler"
 	coresession "github.com/ASTRACAT2022/aesingflow/core/session"
 	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/qlog"
 )
 
 type PaddingProfile = padding.Profile
@@ -191,15 +192,17 @@ func quicConfig(idle, keep time.Duration, maxStreams int, datagrams bool) *quic.
 	// conservative quic-go defaults. Start with windows large enough for a
 	// broadband long-haul link and leave headroom for multiplexed streams.
 	return &quic.Config{
-		HandshakeIdleTimeout:             10 * time.Second,
-		MaxIdleTimeout:                   idle,
-		KeepAlivePeriod:                  keep,
-		InitialStreamReceiveWindow:       4 << 20,
-		MaxStreamReceiveWindow:           32 << 20,
-		InitialConnectionReceiveWindow:   8 << 20,
-		MaxConnectionReceiveWindow:       64 << 20,
-		MaxIncomingStreams:               int64(maxStreams + 1),
-		EnableDatagrams:                  datagrams,
+		HandshakeIdleTimeout:           10 * time.Second,
+		MaxIdleTimeout:                 idle,
+		KeepAlivePeriod:                keep,
+		InitialStreamReceiveWindow:     4 << 20,
+		MaxStreamReceiveWindow:         32 << 20,
+		InitialConnectionReceiveWindow: 8 << 20,
+		MaxConnectionReceiveWindow:     64 << 20,
+		MaxIncomingStreams:             int64(maxStreams + 1),
+		EnableDatagrams:                datagrams,
+		// This tracer is a no-op until QLOGDIR is set in the environment.
+		Tracer: qlog.DefaultConnectionTracer,
 	}
 }
 

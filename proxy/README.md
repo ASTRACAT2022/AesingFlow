@@ -51,3 +51,12 @@ buffers are not capped too low:
 sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.wmem_max=8388608
 ```
+
+To diagnose throughput, set `QLOGDIR` before starting either command. It
+records RTT, congestion-window, and packet-loss events in `.sqlog` files, but
+normal runs are unchanged when `QLOGDIR` is unset:
+
+```sh
+QLOGDIR=/tmp/aesingflow-qlog go run ./cmd/aesingflow-proxy-client ...
+rg -o 'recovery:packet_lost' /tmp/aesingflow-qlog | wc -l
+```
