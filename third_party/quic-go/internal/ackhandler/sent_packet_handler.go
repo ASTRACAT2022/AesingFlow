@@ -64,6 +64,13 @@ type alarmTimer struct {
 	EncryptionLevel protocol.EncryptionLevel
 }
 
+// CongestionConfig selects optional AesingFlow congestion-control extensions.
+// A zero value keeps quic-go's regular CUBIC controller.
+type CongestionConfig struct {
+	BrutalSendRate                uint64
+	BrutalDisableLossCompensation bool
+}
+
 type sentPacketHandler struct {
 	initialPackets   *packetNumberSpace
 	handshakePackets *packetNumberSpace
@@ -128,15 +135,26 @@ func NewSentPacketHandler(
 	pers protocol.Perspective,
 	qlogger qlogwriter.Recorder,
 	logger utils.Logger,
+	congestionConfigs ...CongestionConfig,
 ) SentPacketHandler {
-	congestion := congestion.NewCubicSender(
-		congestion.DefaultClock{},
-		rttStats,
-		connStats,
-		initialMaxDatagramSize,
-		false, // use CUBIC
-		qlogger,
-	)
+	var congestionControl congestion.SendAlgorithmWithDebugInfos
+	if len(congestionConfigs) > 0 && congestionConfigs[0].BrutalSendRate > 0 {
+		congestionControl = congestion.NewBrutalSender(
+			congestionConfigs[0].BrutalSendRate,
+			rttStats,
+			initialMaxDatagramSize,
+			congestionConfigs[0].BrutalDisableLossCompensation,
+		)
+	} else {
+		congestionControl = congestion.NewCubicSender(
+			congestion.DefaultClock{},
+			rttStats,
+			connStats,
+			initialMaxDatagramSize,
+			false, // use CUBIC
+			qlogger,
+		)
+	}
 
 	h := &sentPacketHandler{
 		peerCompletedAddressValidation: pers == protocol.PerspectiveServer,
@@ -147,7 +165,7 @@ func NewSentPacketHandler(
 		lostPackets:                    *newLostPacketTracker(64),
 		rttStats:                       rttStats,
 		connStats:                      connStats,
-		congestion:                     congestion,
+		congestion:                     congestionControl,
 		ignorePacketsBelow:             ignorePacketsBelow,
 		perspective:                    pers,
 		qlogger:                        qlogger,

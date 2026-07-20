@@ -61,7 +61,12 @@ type ClientConfig struct {
 	MaxStreams, MaxDatagramSize                                      int
 	EnableDatagrams                                                  bool
 	PaddingProfile                                                   PaddingProfile
-	Logger                                                           *slog.Logger
+	// BrutalSendRate enables the fixed-rate Brutal controller for outbound QUIC
+	// traffic when non-zero. The value is bits per second; zero uses CUBIC.
+	BrutalSendRate uint64
+	// BrutalDisableLossCompensation disables Brutal's bounded loss compensation.
+	BrutalDisableLossCompensation bool
+	Logger                        *slog.Logger
 }
 type ServerConfig struct {
 	Address                                                                                          string
@@ -70,7 +75,12 @@ type ServerConfig struct {
 	IdleTimeout, KeepAliveInterval                                                                   time.Duration
 	MaxConnections, MaxStreamsPerClient, MaxDatagramSessions, MaxControlMessageSize, MaxDatagramSize int
 	PaddingProfile                                                                                   PaddingProfile
-	Logger                                                                                           *slog.Logger
+	// BrutalSendRate enables the fixed-rate Brutal controller for outbound QUIC
+	// traffic when non-zero. The value is bits per second; zero uses CUBIC.
+	BrutalSendRate uint64
+	// BrutalDisableLossCompensation disables Brutal's bounded loss compensation.
+	BrutalDisableLossCompensation bool
+	Logger                        *slog.Logger
 }
 type Client interface {
 	Connect(context.Context) (Connection, error)
@@ -150,7 +160,7 @@ func NewServer(c ServerConfig) (Server, error) {
 	if c.MaxDatagramSize <= 0 {
 		c.MaxDatagramSize = protocol.DefaultMaxDatagramSize
 	}
-	l, e := quic.ListenAddr(c.Address, t, quicConfig(c.IdleTimeout, c.KeepAliveInterval, c.MaxStreamsPerClient, true))
+	l, e := quic.ListenAddr(c.Address, t, quicConfig(c.IdleTimeout, c.KeepAliveInterval, c.MaxStreamsPerClient, true, c.BrutalSendRate, c.BrutalDisableLossCompensation))
 	if e != nil {
 		return nil, e
 	}
@@ -187,7 +197,7 @@ func serverTLS(in *tls.Config) (*tls.Config, error) {
 	}
 	return c, nil
 }
-func quicConfig(idle, keep time.Duration, maxStreams int, datagrams bool) *quic.Config {
+func quicConfig(idle, keep time.Duration, maxStreams int, datagrams bool, brutalSendRate uint64, brutalDisableLossCompensation bool) *quic.Config {
 	// Proxy traffic commonly has a bandwidth-delay product well above the
 	// conservative quic-go defaults. Start with windows large enough for a
 	// broadband long-haul link and leave headroom for multiplexed streams.
@@ -201,6 +211,8 @@ func quicConfig(idle, keep time.Duration, maxStreams int, datagrams bool) *quic.
 		MaxConnectionReceiveWindow:     64 << 20,
 		MaxIncomingStreams:             int64(maxStreams + 1),
 		EnableDatagrams:                datagrams,
+		BrutalSendRate:                 brutalSendRate,
+		BrutalDisableLossCompensation:  brutalDisableLossCompensation,
 		// This tracer is a no-op until QLOGDIR is set in the environment.
 		Tracer: qlog.DefaultConnectionTracer,
 	}
@@ -221,7 +233,7 @@ func (c *client) Connect(ctx context.Context) (Connection, error) {
 		ctx, cancel = context.WithTimeout(ctx, c.cfg.ConnectTimeout)
 		defer cancel()
 	}
-	q, e := quic.DialAddr(ctx, c.cfg.Address, t, quicConfig(c.cfg.IdleTimeout, c.cfg.KeepAliveInterval, c.cfg.MaxStreams, c.cfg.EnableDatagrams))
+	q, e := quic.DialAddr(ctx, c.cfg.Address, t, quicConfig(c.cfg.IdleTimeout, c.cfg.KeepAliveInterval, c.cfg.MaxStreams, c.cfg.EnableDatagrams, c.cfg.BrutalSendRate, c.cfg.BrutalDisableLossCompensation))
 	if e != nil {
 		return nil, e
 	}

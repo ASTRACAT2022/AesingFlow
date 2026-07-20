@@ -25,10 +25,25 @@ func main() {
 	caFile := flag.String("ca", "", "optional server CA certificate in PEM format (needed for a private/self-signed certificate)")
 	token := flag.String("token", "", "AesingFlow access token")
 	maxStreams := flag.Int("max-streams", 256, "maximum concurrent SOCKS5 TCP streams")
+	cc := flag.String("cc", "cubic", "QUIC congestion controller: cubic or brutal")
+	brutalBPS := flag.Uint64("brutal-bps", 0, "Brutal outbound rate limit in bits/s (required with -cc brutal)")
+	brutalDisableLossCompensation := flag.Bool("brutal-disable-loss-compensation", false, "disable Brutal loss compensation")
 	flag.Parse()
 	if *server == "" || *token == "" {
 		fmt.Fprintln(os.Stderr, "-server and -token are required")
 		os.Exit(2)
+	}
+	if *cc != "cubic" && *cc != "brutal" {
+		fmt.Fprintln(os.Stderr, "-cc must be cubic or brutal")
+		os.Exit(2)
+	}
+	if *cc == "brutal" && *brutalBPS == 0 {
+		fmt.Fprintln(os.Stderr, "-brutal-bps must be greater than zero with -cc brutal")
+		os.Exit(2)
+	}
+	brutalSendRate := uint64(0)
+	if *cc == "brutal" {
+		brutalSendRate = *brutalBPS
 	}
 	name := *serverName
 	var err error
@@ -53,7 +68,7 @@ func main() {
 		}
 		tlsConfig.RootCAs = roots
 	}
-	client, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: *server, TLSConfig: tlsConfig, Token: *token, ConnectTimeout: 15 * time.Second, MaxStreams: *maxStreams})
+	client, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: *server, TLSConfig: tlsConfig, Token: *token, ConnectTimeout: 15 * time.Second, MaxStreams: *maxStreams, BrutalSendRate: brutalSendRate, BrutalDisableLossCompensation: *brutalDisableLossCompensation})
 	if err != nil {
 		slog.Error("create AesingFlow client", "error", err)
 		os.Exit(1)

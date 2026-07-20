@@ -81,6 +81,52 @@ func testPair(t *testing.T) (Connection, Connection, func()) {
 		cancel()
 	}
 }
+
+func TestBrutalQUICHandshake(t *testing.T) {
+	st, ct := testTLS(t)
+	srv, err := NewServer(ServerConfig{
+		Address:             "127.0.0.1:0",
+		TLSConfig:           st,
+		Authenticator:       &StaticAuthenticator{Tokens: []Token{{Value: "token", Subject: "test"}}},
+		BrutalSendRate:      100_000_000,
+		MaxStreamsPerClient: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	accepted := make(chan Connection, 1)
+	acceptErr := make(chan error, 1)
+	go func() {
+		conn, err := srv.Accept(ctx)
+		if err != nil {
+			acceptErr <- err
+			return
+		}
+		accepted <- conn
+	}()
+	cl, err := NewClient(ClientConfig{Address: srv.Addr().String(), TLSConfig: ct, Token: "token", BrutalSendRate: 100_000_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := cl.Connect(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseWithError(0, "test complete")
+	select {
+	case serverConn := <-accepted:
+		defer serverConn.CloseWithError(0, "test complete")
+	case err = <-acceptErr:
+		t.Fatal(err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+}
+
 func TestQUICHandshakeAndStreamEcho(t *testing.T) {
 	c, s, done := testPair(t)
 	defer done()

@@ -175,6 +175,14 @@ type Config struct {
 	// Enable QUIC Stream Resets with Partial Delivery.
 	// See https://datatracker.ietf.org/doc/html/draft-ietf-quic-reliable-stream-reset-07.
 	EnableStreamResetPartialDelivery bool
+	// BrutalSendRate enables the AesingFlow Brutal congestion controller when it
+	// is non-zero. The value is the endpoint's outbound rate limit in bits per
+	// second. This is an AesingFlow extension to quic-go, not a QUIC transport
+	// parameter: both peers may use independent limits.
+	BrutalSendRate uint64
+	// BrutalDisableLossCompensation disables Brutal's bounded compensation for
+	// packet loss. It only has an effect when BrutalSendRate is non-zero.
+	BrutalDisableLossCompensation bool
 
 	Tracer func(ctx context.Context, isClient bool, connID ConnectionID) qlogwriter.Trace
 }

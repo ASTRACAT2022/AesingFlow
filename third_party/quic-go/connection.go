@@ -321,6 +321,10 @@ var newConnection = func(
 		s.perspective,
 		s.qlogger,
 		s.logger,
+		ackhandler.CongestionConfig{
+			BrutalSendRate:                s.config.BrutalSendRate,
+			BrutalDisableLossCompensation: s.config.BrutalDisableLossCompensation,
+		},
 	)
 	s.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(protocol.ByteCount(s.config.InitialPacketSize))))
 	statelessResetToken := statelessResetter.GetStatelessResetToken(srcConnID)
@@ -450,6 +454,10 @@ var newClientConnection = func(
 		s.perspective,
 		s.qlogger,
 		s.logger,
+		ackhandler.CongestionConfig{
+			BrutalSendRate:                s.config.BrutalSendRate,
+			BrutalDisableLossCompensation: s.config.BrutalDisableLossCompensation,
+		},
 	)
 	s.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(protocol.ByteCount(s.config.InitialPacketSize))))
 	oneRTTStream := newCryptoStream()

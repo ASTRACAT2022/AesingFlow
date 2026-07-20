@@ -124,6 +124,8 @@ func populateConfig(config *Config) *Config {
 		DisablePathMTUDiscovery:          config.DisablePathMTUDiscovery,
 		EnableStreamResetPartialDelivery: config.EnableStreamResetPartialDelivery,
 		Allow0RTT:                        config.Allow0RTT,
+		BrutalSendRate:                   config.BrutalSendRate,
+		BrutalDisableLossCompensation:    config.BrutalDisableLossCompensation,
 		Tracer:                           config.Tracer,
 	}
 }
