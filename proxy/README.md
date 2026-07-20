@@ -28,6 +28,16 @@ application to use SOCKS5 `127.0.0.1:8010`, or test it with:
 curl --proxy socks5h://127.0.0.1:8010 https://ifconfig.me
 ```
 
+Instead of specifying server and token separately, the client also accepts a
+portable `aesingflow://` profile link:
+
+```sh
+go run ./cmd/aesingflow-proxy-client -link 'aesingflow://TOKEN@vpn.example.com:4433?sni=vpn.example.com#My%20server'
+```
+
+See [the link format](../docs/links.md). The link includes the access token, so
+do not share it publicly.
+
 `socks5h` sends the hostname through the tunnel, so DNS resolution happens at
 the server exit. The implementation supports SOCKS5 `CONNECT` (TCP) only; it
 does not implement UDP ASSOCIATE, a TUN interface, or macOS system-wide traffic

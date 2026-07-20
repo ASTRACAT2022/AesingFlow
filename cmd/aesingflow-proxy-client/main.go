@@ -15,11 +15,13 @@ import (
 	"time"
 
 	"github.com/ASTRACAT2022/aesingflow/pkg/aesingflow"
+	"github.com/ASTRACAT2022/aesingflow/pkg/link"
 	"github.com/ASTRACAT2022/aesingflow/proxy"
 )
 
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8010", "local SOCKS5 listen address")
+	shareLink := flag.String("link", "", "aesingflow:// profile link (overrides server, token, SNI, controller, rate, and stream limit)")
 	server := flag.String("server", "", "AesingFlow server host:port")
 	serverName := flag.String("server-name", "", "TLS certificate name (defaults to server host)")
 	caFile := flag.String("ca", "", "optional server CA certificate in PEM format (needed for a private/self-signed certificate)")
@@ -29,6 +31,28 @@ func main() {
 	brutalBPS := flag.Uint64("brutal-bps", aesingflow.DefaultBrutalSendRate, "Brutal outbound rate limit in bits/s")
 	brutalDisableLossCompensation := flag.Bool("brutal-disable-loss-compensation", false, "disable Brutal loss compensation")
 	flag.Parse()
+	if *shareLink != "" {
+		profile, err := link.Parse(*shareLink)
+		if err != nil {
+			slog.Error("parse AesingFlow link", "error", err)
+			os.Exit(2)
+		}
+		*server = profile.Server
+		*token = profile.Token
+		*serverName = profile.ServerName
+		if profile.MaxStreams != 0 {
+			*maxStreams = profile.MaxStreams
+		}
+		if profile.DisableBrutal {
+			*cc = "cubic"
+			*brutalBPS = 0
+		} else {
+			*cc = "brutal"
+			if profile.BrutalSendRate != 0 {
+				*brutalBPS = profile.BrutalSendRate
+			}
+		}
+	}
 	if *server == "" || *token == "" {
 		fmt.Fprintln(os.Stderr, "-server and -token are required")
 		os.Exit(2)

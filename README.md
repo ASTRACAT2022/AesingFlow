@@ -16,6 +16,11 @@ For a Go proxy core, use the standard TCP `proxy.Dialer` integration API rather
 than embedding the SOCKS listener. It returns `net.Conn` instances over a shared
 AesingFlow connection. See [core integrations](docs/integrations.md).
 
+## Shareable client links
+
+Client profiles can be represented as `aesingflow://` links and used directly by
+the proxy client with `-link`. See [link format](docs/links.md).
+
 ## Quick check
 
 ```sh
