@@ -24,6 +24,7 @@ func main() {
 	serverName := flag.String("server-name", "", "TLS certificate name (defaults to server host)")
 	caFile := flag.String("ca", "", "optional server CA certificate in PEM format (needed for a private/self-signed certificate)")
 	token := flag.String("token", "", "AesingFlow access token")
+	maxStreams := flag.Int("max-streams", 256, "maximum concurrent SOCKS5 TCP streams")
 	flag.Parse()
 	if *server == "" || *token == "" {
 		fmt.Fprintln(os.Stderr, "-server and -token are required")
@@ -52,7 +53,7 @@ func main() {
 		}
 		tlsConfig.RootCAs = roots
 	}
-	client, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: *server, TLSConfig: tlsConfig, Token: *token, ConnectTimeout: 15 * time.Second})
+	client, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: *server, TLSConfig: tlsConfig, Token: *token, ConnectTimeout: 15 * time.Second, MaxStreams: *maxStreams})
 	if err != nil {
 		slog.Error("create AesingFlow client", "error", err)
 		os.Exit(1)

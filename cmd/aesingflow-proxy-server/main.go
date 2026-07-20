@@ -19,6 +19,7 @@ func main() {
 	certFile := flag.String("cert", "", "TLS certificate PEM")
 	keyFile := flag.String("key", "", "TLS private key PEM")
 	token := flag.String("token", "", "AesingFlow access token")
+	maxStreams := flag.Int("max-streams", 256, "maximum concurrent TCP streams per client")
 	flag.Parse()
 	if *certFile == "" || *keyFile == "" || *token == "" {
 		slog.Error("-cert, -key, and -token are required")
@@ -29,7 +30,7 @@ func main() {
 		slog.Error("load TLS certificate", "error", err)
 		os.Exit(1)
 	}
-	server, err := aesingflow.NewServer(aesingflow.ServerConfig{Address: *listen, TLSConfig: &tls.Config{Certificates: []tls.Certificate{cert}}, Authenticator: &aesingflow.StaticAuthenticator{Tokens: []aesingflow.Token{{Value: *token, Subject: "proxy"}}}})
+	server, err := aesingflow.NewServer(aesingflow.ServerConfig{Address: *listen, TLSConfig: &tls.Config{Certificates: []tls.Certificate{cert}}, Authenticator: &aesingflow.StaticAuthenticator{Tokens: []aesingflow.Token{{Value: *token, Subject: "proxy"}}}, MaxStreamsPerClient: *maxStreams})
 	if err != nil {
 		slog.Error("create AesingFlow server", "error", err)
 		os.Exit(1)

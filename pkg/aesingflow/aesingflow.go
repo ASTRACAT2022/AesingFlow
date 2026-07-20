@@ -187,7 +187,20 @@ func serverTLS(in *tls.Config) (*tls.Config, error) {
 	return c, nil
 }
 func quicConfig(idle, keep time.Duration, maxStreams int, datagrams bool) *quic.Config {
-	return &quic.Config{HandshakeIdleTimeout: 10 * time.Second, MaxIdleTimeout: idle, KeepAlivePeriod: keep, MaxIncomingStreams: int64(maxStreams + 1), EnableDatagrams: datagrams}
+	// Proxy traffic commonly has a bandwidth-delay product well above the
+	// conservative quic-go defaults. Start with windows large enough for a
+	// broadband long-haul link and leave headroom for multiplexed streams.
+	return &quic.Config{
+		HandshakeIdleTimeout:             10 * time.Second,
+		MaxIdleTimeout:                   idle,
+		KeepAlivePeriod:                  keep,
+		InitialStreamReceiveWindow:       4 << 20,
+		MaxStreamReceiveWindow:           32 << 20,
+		InitialConnectionReceiveWindow:   8 << 20,
+		MaxConnectionReceiveWindow:       64 << 20,
+		MaxIncomingStreams:               int64(maxStreams + 1),
+		EnableDatagrams:                  datagrams,
+	}
 }
 
 type client struct {

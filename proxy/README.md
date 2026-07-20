@@ -41,3 +41,13 @@ For a server certificate issued by a public CA such as Let's Encrypt, the macOS
 client automatically uses the system trust store and needs no `-ca` argument.
 For a private or self-signed server certificate, supply its public CA
 certificate (never the private key): `-ca ca.pem`.
+
+The client keeps one multiplexed QUIC connection open for all SOCKS5 requests.
+Both commands allow up to 256 concurrent TCP streams by default; change this
+with `-max-streams`. For high throughput on a Linux server, make sure UDP socket
+buffers are not capped too low:
+
+```sh
+sysctl -w net.core.rmem_max=8388608
+sysctl -w net.core.wmem_max=8388608
+```

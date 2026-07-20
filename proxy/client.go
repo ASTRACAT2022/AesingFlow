@@ -25,6 +25,8 @@ type Client struct {
 	listenAddress string
 	client        aesingflow.Client
 	log           *slog.Logger
+	connectionMu  sync.Mutex
+	connection    aesingflow.Connection
 }
 
 func NewClient(cfg ClientConfig) (*Client, error) {
@@ -41,6 +43,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 }
 
 func (c *Client) ListenAndServe(ctx context.Context) error {
+	defer c.closeConnection()
 	listener, err := net.Listen("tcp", c.listenAddress)
 	if err != nil {
 		return err
@@ -70,14 +73,16 @@ func (c *Client) handle(ctx context.Context, local net.Conn) {
 		c.log.Debug("SOCKS5 negotiation failed", "remote", local.RemoteAddr(), "error", err)
 		return
 	}
-	conn, err := c.client.Connect(ctx)
+	conn, err := c.getConnection(ctx)
 	if err != nil {
 		_ = writeSOCKSReply(local, 0x01)
 		c.log.Warn("AesingFlow connection failed", "target", target.Address(), "error", err)
 		return
 	}
-	defer conn.CloseWithError(0, "proxy session complete")
 	stream, err := conn.OpenStream(ctx)
+	if err != nil {
+		c.resetConnection(conn)
+	}
 	if err == nil {
 		err = writeRequest(stream, target)
 	}
@@ -85,6 +90,9 @@ func (c *Client) handle(ctx context.Context, local net.Conn) {
 		err = readResponse(stream)
 	}
 	if err != nil {
+		if stream != nil {
+			_ = stream.Close()
+		}
 		_ = writeSOCKSReply(local, 0x01)
 		c.log.Debug("tunnel open failed", "target", target.Address(), "error", err)
 		return
@@ -94,6 +102,42 @@ func (c *Client) handle(ctx context.Context, local net.Conn) {
 	}
 	c.log.Debug("proxy tunnel opened", "target", target.Address())
 	copyBoth(local, stream)
+}
+
+// getConnection returns a shared, multiplexed AesingFlow connection. Opening
+// a QUIC connection per SOCKS request prevents connection warm-up and severely
+// reduces throughput for browsers that make several short-lived connections.
+func (c *Client) getConnection(ctx context.Context) (aesingflow.Connection, error) {
+	c.connectionMu.Lock()
+	defer c.connectionMu.Unlock()
+	if c.connection != nil {
+		return c.connection, nil
+	}
+	conn, err := c.client.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c.connection = conn
+	return conn, nil
+}
+
+func (c *Client) resetConnection(conn aesingflow.Connection) {
+	c.connectionMu.Lock()
+	if c.connection == conn {
+		c.connection = nil
+	}
+	c.connectionMu.Unlock()
+	_ = conn.CloseWithError(0, "proxy reconnecting")
+}
+
+func (c *Client) closeConnection() {
+	c.connectionMu.Lock()
+	conn := c.connection
+	c.connection = nil
+	c.connectionMu.Unlock()
+	if conn != nil {
+		_ = conn.CloseWithError(0, "proxy stopped")
+	}
 }
 
 func negotiateSOCKS5(conn net.Conn) (Target, error) {
