@@ -18,7 +18,7 @@ go run ./cmd/aesingflow-proxy-server \
 # On macOS:
 go run ./cmd/aesingflow-proxy-client \
   -server vpn.example.com:4433 -server-name vpn.example.com \
-  -ca ca.pem -token 'a-long-random-token'
+  -token 'a-long-random-token'
 ```
 
 The macOS command listens on `127.0.0.1:8010` by default. Configure an
@@ -36,3 +36,8 @@ strong unique token. On macOS, proxy-aware applications can be configured with
 SOCKS5 host `127.0.0.1` and port `8010`. The macOS SOCKS setting does not capture
 all system traffic; a real full-device tunnel requires a separate Network
 Extension/TUN client.
+
+For a server certificate issued by a public CA such as Let's Encrypt, the macOS
+client automatically uses the system trust store and needs no `-ca` argument.
+For a private or self-signed server certificate, supply its public CA
+certificate (never the private key): `-ca ca.pem`.
