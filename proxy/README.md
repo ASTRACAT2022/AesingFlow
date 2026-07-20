@@ -1,0 +1,38 @@
+# AesingFlow SOCKS5 proxy
+
+This directory contains a small TCP proxy over authenticated AesingFlow QUIC
+streams. It adds two commands:
+
+Build the binaries:
+
+```sh
+go build -o bin/aesingflow-proxy-server ./cmd/aesingflow-proxy-server
+go build -o bin/aesingflow-proxy-client ./cmd/aesingflow-proxy-client
+```
+
+```sh
+# On the server (open UDP 4433 in the firewall):
+go run ./cmd/aesingflow-proxy-server \
+  -listen :4433 -cert server.pem -key server-key.pem -token 'a-long-random-token'
+
+# On macOS:
+go run ./cmd/aesingflow-proxy-client \
+  -server vpn.example.com:4433 -server-name vpn.example.com \
+  -ca ca.pem -token 'a-long-random-token'
+```
+
+The macOS command listens on `127.0.0.1:8010` by default. Configure an
+application to use SOCKS5 `127.0.0.1:8010`, or test it with:
+
+```sh
+curl --proxy socks5h://127.0.0.1:8010 https://ifconfig.me
+```
+
+`socks5h` sends the hostname through the tunnel, so DNS resolution happens at
+the server exit. The implementation supports SOCKS5 `CONNECT` (TCP) only; it
+does not implement UDP ASSOCIATE, a TUN interface, or macOS system-wide traffic
+redirection. Keep the listener bound to loopback and protect the server with a
+strong unique token. On macOS, proxy-aware applications can be configured with
+SOCKS5 host `127.0.0.1` and port `8010`. The macOS SOCKS setting does not capture
+all system traffic; a real full-device tunnel requires a separate Network
+Extension/TUN client.
