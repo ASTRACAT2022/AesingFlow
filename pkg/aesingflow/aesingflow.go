@@ -116,6 +116,9 @@ type StreamSession interface {
 	ID() uint64
 	Read([]byte) (int, error)
 	Write([]byte) (int, error)
+	SetDeadline(time.Time) error
+	SetReadDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
 	Close() error
 	CloseWithError(code uint64, reason string) error
 	Stats() StreamStats
@@ -686,6 +689,9 @@ func (s *streamSession) Write(p []byte) (int, error) {
 	}
 	return n, e
 }
+func (s *streamSession) SetDeadline(t time.Time) error      { return s.stream.SetDeadline(t) }
+func (s *streamSession) SetReadDeadline(t time.Time) error  { return s.stream.SetReadDeadline(t) }
+func (s *streamSession) SetWriteDeadline(t time.Time) error { return s.stream.SetWriteDeadline(t) }
 func (s *streamSession) Close() error {
 	var e error
 	s.once.Do(func() {

@@ -10,6 +10,12 @@ The optional TCP proxy commands are documented in [proxy/README.md](proxy/README
 They run an authenticated AesingFlow server exit and a local SOCKS5 endpoint on
 `127.0.0.1:8010`; they are not a TUN/VPN implementation.
 
+## Embedding in other proxy cores
+
+For a Go proxy core, use the standard TCP `proxy.Dialer` integration API rather
+than embedding the SOCKS listener. It returns `net.Conn` instances over a shared
+AesingFlow connection. See [core integrations](docs/integrations.md).
+
 ## Quick check
 
 ```sh

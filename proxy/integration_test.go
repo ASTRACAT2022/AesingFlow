@@ -111,6 +111,76 @@ func TestSOCKS5Tunnel(t *testing.T) {
 	}
 }
 
+func TestDialerTunnel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	echo, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer echo.Close()
+	go func() {
+		conn, err := echo.Accept()
+		if err == nil {
+			defer conn.Close()
+			_, _ = io.Copy(conn, conn)
+		}
+	}()
+
+	serverTLS, clientTLS := testTLS(t)
+	server, err := aesingflow.NewServer(aesingflow.ServerConfig{
+		Address:       "127.0.0.1:0",
+		TLSConfig:     serverTLS,
+		Authenticator: &aesingflow.StaticAuthenticator{Tokens: []aesingflow.Token{{Value: "test-token", Subject: "test"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	serverDone := make(chan error, 1)
+	go func() { serverDone <- Serve(ctx, server, ServerConfig{}) }()
+
+	flowClient, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: server.Addr().String(), TLSConfig: clientTLS, Token: "test-token", ConnectTimeout: 5 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialer, err := NewDialer(DialerConfig{Client: flowClient, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dialer.Close()
+
+	conn, err := dialer.DialContext(ctx, "tcp", echo.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err = conn.Write([]byte("core adapter")); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len("core adapter"))
+	if _, err = io.ReadFull(conn, got); err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "core adapter" {
+		t.Fatalf("got %q", got)
+	}
+	if _, err = dialer.DialContext(ctx, "udp", "127.0.0.1:53"); err == nil {
+		t.Fatal("UDP dial unexpectedly succeeded")
+	}
+
+	cancel()
+	select {
+	case err := <-serverDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("proxy server did not stop")
+	}
+}
+
 func testTLS(t *testing.T) (*tls.Config, *tls.Config) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
