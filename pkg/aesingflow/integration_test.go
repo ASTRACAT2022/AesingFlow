@@ -82,6 +82,24 @@ func testPair(t *testing.T) (Connection, Connection, func()) {
 	}
 }
 
+func TestBrutalDefaultsAndOptOut(t *testing.T) {
+	_, clientTLS := testTLS(t)
+	defaultClient, err := NewClient(ClientConfig{Address: "127.0.0.1:4433", TLSConfig: clientTLS, Token: "token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := defaultClient.(*client).cfg.BrutalSendRate; got != DefaultBrutalSendRate {
+		t.Fatalf("default Brutal rate = %d, want %d", got, DefaultBrutalSendRate)
+	}
+	cubicClient, err := NewClient(ClientConfig{Address: "127.0.0.1:4433", TLSConfig: clientTLS, Token: "token", DisableBrutal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cubicClient.(*client).cfg.BrutalSendRate; got != 0 {
+		t.Fatalf("CUBIC opt-out rate = %d, want 0", got)
+	}
+}
+
 func TestBrutalQUICHandshake(t *testing.T) {
 	st, ct := testTLS(t)
 	srv, err := NewServer(ServerConfig{

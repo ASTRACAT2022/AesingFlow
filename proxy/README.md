@@ -52,32 +52,30 @@ sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.wmem_max=8388608
 ```
 
-The bundled `third_party/quic-go` copy uses CUBIC congestion control by default.
-It also includes Hysteria-style **Brutal**: a fixed-rate, paced controller for a
+The bundled `third_party/quic-go` copy uses Hysteria-style **Brutal** by default:
+a fixed-rate, paced controller for a
 known dedicated link. Brutal deliberately does not reduce its target rate after
 loss, so set a real ceiling instead of the NIC's theoretical speed. It is not a
 general replacement for CUBIC and can make an overloaded or lossy network worse.
 
 The ceiling applies to traffic *sent by that endpoint*. To improve downloads,
-enable it on the server; to improve uploads, enable it on the macOS client. For
-a measured 300 Mbit/s home connection, begin at 250 Mbit/s (not 300) on both
-ends and test a single download before raising it:
+enable it on the server; to improve uploads, enable it on the macOS client. It
+defaults to 250 Mbit/s, so no Brutal flags are needed. For a measured 300 Mbit/s
+home connection, test this default before raising it:
 
 ```sh
 # Server: controls proxy downloads to the Mac.
 go run ./cmd/aesingflow-proxy-server \
-  -listen :4433 -cert server.pem -key server-key.pem -token '...' \
-  -cc brutal -brutal-bps 250000000
+  -listen :4433 -cert server.pem -key server-key.pem -token '...'
 
 # macOS: controls proxy uploads from the Mac.
 go run ./cmd/aesingflow-proxy-client \
-  -server vpn.example.com:4433 -server-name vpn.example.com -token '...' \
-  -cc brutal -brutal-bps 250000000
+  -server vpn.example.com:4433 -server-name vpn.example.com -token '...'
 ```
 
 Use the same SOCKS5 endpoint (`127.0.0.1:8010`). The two endpoints do not need
-to negotiate this setting; each only controls its own QUIC sender. Omit `-cc
-brutal` to retain CUBIC. `-brutal-disable-loss-compensation` is available for
+to negotiate this setting; each only controls its own QUIC sender. Use `-cc
+cubic` to opt out. `-brutal-disable-loss-compensation` is available for
 experiments, but should normally remain off.
 
 To diagnose throughput, set `QLOGDIR` before starting either command. It

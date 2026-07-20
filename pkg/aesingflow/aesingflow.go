@@ -36,6 +36,11 @@ const (
 	PaddingDisabled = padding.Disabled
 	PaddingMinimal  = padding.Minimal
 	PaddingBalanced = padding.Balanced
+
+	// DefaultBrutalSendRate is the default outgoing QUIC rate limit used by
+	// AesingFlow's Brutal controller. It is deliberately below a 300 Mbit/s
+	// access link to leave room for packet overhead and other traffic.
+	DefaultBrutalSendRate uint64 = 250_000_000
 )
 
 type Authenticator = coreauth.Authenticator
@@ -61,9 +66,13 @@ type ClientConfig struct {
 	MaxStreams, MaxDatagramSize                                      int
 	EnableDatagrams                                                  bool
 	PaddingProfile                                                   PaddingProfile
-	// BrutalSendRate enables the fixed-rate Brutal controller for outbound QUIC
-	// traffic when non-zero. The value is bits per second; zero uses CUBIC.
+	// BrutalSendRate sets the fixed-rate Brutal controller's outbound rate in
+	// bits per second. A zero value uses DefaultBrutalSendRate unless
+	// DisableBrutal is set.
 	BrutalSendRate uint64
+	// DisableBrutal opts out of AesingFlow's default Brutal controller and uses
+	// CUBIC instead.
+	DisableBrutal bool
 	// BrutalDisableLossCompensation disables Brutal's bounded loss compensation.
 	BrutalDisableLossCompensation bool
 	Logger                        *slog.Logger
@@ -75,9 +84,13 @@ type ServerConfig struct {
 	IdleTimeout, KeepAliveInterval                                                                   time.Duration
 	MaxConnections, MaxStreamsPerClient, MaxDatagramSessions, MaxControlMessageSize, MaxDatagramSize int
 	PaddingProfile                                                                                   PaddingProfile
-	// BrutalSendRate enables the fixed-rate Brutal controller for outbound QUIC
-	// traffic when non-zero. The value is bits per second; zero uses CUBIC.
+	// BrutalSendRate sets the fixed-rate Brutal controller's outbound rate in
+	// bits per second. A zero value uses DefaultBrutalSendRate unless
+	// DisableBrutal is set.
 	BrutalSendRate uint64
+	// DisableBrutal opts out of AesingFlow's default Brutal controller and uses
+	// CUBIC instead.
+	DisableBrutal bool
 	// BrutalDisableLossCompensation disables Brutal's bounded loss compensation.
 	BrutalDisableLossCompensation bool
 	Logger                        *slog.Logger
@@ -132,6 +145,9 @@ func NewClient(c ClientConfig) (Client, error) {
 	if c.HandshakeTimeout <= 0 {
 		c.HandshakeTimeout = 10 * time.Second
 	}
+	if !c.DisableBrutal && c.BrutalSendRate == 0 {
+		c.BrutalSendRate = DefaultBrutalSendRate
+	}
 	return &client{cfg: c, log: logger(c.Logger)}, nil
 }
 func NewServer(c ServerConfig) (Server, error) {
@@ -159,6 +175,9 @@ func NewServer(c ServerConfig) (Server, error) {
 	}
 	if c.MaxDatagramSize <= 0 {
 		c.MaxDatagramSize = protocol.DefaultMaxDatagramSize
+	}
+	if !c.DisableBrutal && c.BrutalSendRate == 0 {
+		c.BrutalSendRate = DefaultBrutalSendRate
 	}
 	l, e := quic.ListenAddr(c.Address, t, quicConfig(c.IdleTimeout, c.KeepAliveInterval, c.MaxStreamsPerClient, true, c.BrutalSendRate, c.BrutalDisableLossCompensation))
 	if e != nil {
