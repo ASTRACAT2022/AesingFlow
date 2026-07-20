@@ -1,5 +1,9 @@
 # Core integrations
 
+For the full step-by-step guide, including Xray and sing-box SOCKS fragments
+and the lifecycle of a native Go adapter, see the
+[core integration manual](core-integration-manual.md).
+
 AesingFlow separates its QUIC transport from the local SOCKS5 command. The
 `proxy.Dialer` package is the stable outbound integration API: it implements
 `DialContext(context.Context, network, address) (net.Conn, error)` and keeps one
