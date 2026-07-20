@@ -52,6 +52,10 @@ sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.wmem_max=8388608
 ```
 
+The bundled `third_party/quic-go` copy uses CUBIC congestion control. Upstream
+quic-go v0.60.0 hard-codes Reno, which grows its congestion window too slowly on
+high-RTT proxy links.
+
 To diagnose throughput, set `QLOGDIR` before starting either command. It
 records RTT, congestion-window, and packet-loss events in `.sqlog` files, but
 normal runs are unchanged when `QLOGDIR` is unset:
