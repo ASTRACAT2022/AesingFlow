@@ -53,9 +53,17 @@ For a private or self-signed server certificate, supply its public CA
 certificate (never the private key): `-ca ca.pem`.
 
 The client keeps one multiplexed QUIC connection open for all SOCKS5 requests.
-Both commands allow up to 256 concurrent TCP streams by default; change this
-with `-max-streams`. For high throughput on a Linux server, make sure UDP socket
-buffers are not capped too low:
+Both commands allow up to 256 concurrent TCP streams per client by default;
+change this with `-max-streams`. The server additionally caps all active proxy
+streams at 4096 (`-max-concurrent-streams`) and authenticates connections in a
+worker pool (`-accept-workers`, at least 64 by default). These limits keep
+a burst of incomplete requests from exhausting memory while allowing normal
+connections to wait with QUIC backpressure instead of being dropped. The
+application handshake and the first CONNECT request both default to 10 seconds
+and can be adjusted with `-handshake-timeout` and `-request-timeout`.
+
+For high throughput on a Linux server, make sure UDP socket buffers are not
+capped too low:
 
 ```sh
 sysctl -w net.core.rmem_max=8388608
